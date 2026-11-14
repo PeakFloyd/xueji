@@ -1,12 +1,12 @@
 # 学籍管理系统（软件工程课程作业）
 
-后端使用 **Bun / TypeScript + pi-agent-core** 运行会话与工具；Python 只负责 SQLite 业务能力与权限检查，Java 17 JDBC 实体/DAO 继续保留。前端是独立的 **Next.js / React / TypeScript** 工程，本次不改前端页面。数据库设计满足第三范式（3NF）。
+后端使用 **Bun / TypeScript + pi-agent-core** 运行会话与工具；Python 只负责 SQLite 业务能力与权限检查，Java 17 JDBC 实体/DAO 继续保留。前端是独立的 **Next.js / React / TypeScript** 工程：开场动画之后进入身份验证与主界面，经 Next.js 服务端代理调用 Agent API。数据库设计满足第三范式（3NF）。
 
 ## 当前架构
 
 | 组件 | 位置 | 用途 |
 |---|---|---|
-| Next.js 前端 | `frontend/` | App Router；业务页面与后端对接待实现 |
+| Next.js 前端 | `frontend/` | 开场动画 → 身份验证 → 主界面；`/api/xueji/*` 服务端代理 Agent API（会话 ID 存于 httpOnly Cookie）|
 | Agent HTTP API | `backend/` | pi-agent-core 会话、模型、流式响应、自定义工具与写操作二次确认 |
 | 受控数据能力 | `ai/` | Python SQLite 能力白名单、作用域/RBAC、事实模板；不直接调用模型 |
 | 数据层 | `src/xueji/entity/`、`src/xueji/dao/`、`db/` | Java JDBC 数据访问与 SQLite 建库脚本 |
@@ -113,6 +113,8 @@ set ANTHROPIC_API_KEY=你的密钥
 bun dev                     :: 后端默认 http://127.0.0.1:8090
 ```
 
+如使用 LongCat-2.5，在 `backend` 目录将 `.env.example` 复制为 `.env`，设置 `PI_PROVIDER=longcat`、`PI_MODEL=LongCat-2.5`、`LONGCAT_API_KEY=你的密钥`，再重启 `bun dev`。LongCat 走 OpenAI Responses 接口；`.env` 已被 Git 忽略，请勿将密钥写入前端。
+
 另开终端启动独立前端：
 
 ```bat
@@ -120,7 +122,7 @@ cd frontend
 bun dev                     :: http://localhost:3000
 ```
 
-模型、跨域、会话和请求示例见 [`docs/API.md`](docs/API.md)。前端目前仍是初始化页面，**本次没有修改其代码**。不要将未认证的演示身份接口暴露到公网；需要上线时先接入真实认证。
+模型、跨域、会话和请求示例见 [`docs/API.md`](docs/API.md)。前端说明见 [`frontend/README.md`](frontend/README.md)。不要将未认证的演示身份接口暴露到公网；需要上线时先接入真实认证。
 
 ### 演示数据规模
 
@@ -155,7 +157,7 @@ python db\init_db.py --fresh     :: 删库重建（结构 + 数据全部重建�
 ## 数据维护
 
 Java 实体和 DAO 仍保留，可用于数据库操作；原桌面管理界面及其启动脚本已移除。
-新前端目前只包含脚手架，尚未提供数据管理页面。第 9 张表 `issued_student_id`（学号台账）仍由数据层维护，不应手工删除历史学号。
+新增/删除学籍在主界面中以“写入预览 → 显式确认按钮”完成（仅管理员）。第 9 张表 `issued_student_id`（学号台账）仍由数据层维护，不应手工删除历史学号。
 
 ## 作业文档
 

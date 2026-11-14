@@ -1,5 +1,6 @@
 import { Agent } from "@earendil-works/pi-agent-core";
-import type { Models } from "@earendil-works/pi-ai";
+import { createProvider, envApiKeyAuth, type Model, type Models } from "@earendil-works/pi-ai";
+import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { BridgeError, type Ability, type Identity, type JsonObject, type PythonBridge } from "./bridge";
 import { systemPrompt } from "./system-prompt";
@@ -7,6 +8,20 @@ import { buildTools, type FactEntry, type ToolFailure } from "./tools";
 
 const MAX_MODEL_TURNS = 8;
 const MAX_TOOL_CALLS = 16;
+
+const LONGCAT_MODEL: Model<"openai-responses"> = {
+  id: "LongCat-2.5",
+  name: "LongCat-2.5",
+  api: "openai-responses",
+  provider: "longcat",
+  baseUrl: "https://api.longcat.chat/openai/v1",
+  reasoning: true,
+  input: ["text", "image"],
+  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+  contextWindow: 1048576,
+  maxTokens: 262144,
+  compat: { supportsStrictMode: true },
+};
 
 export interface PendingPreview {
   ability: string;
@@ -39,10 +54,26 @@ export function createSessionAgent(
   bridge: PythonBridge,
   config: { models?: Models; provider?: string; model?: string } = {},
 ): SessionAgent {
-  const models = config.models ?? builtinModels();
   const provider = config.provider ?? process.env.PI_PROVIDER;
   const modelId = config.model ?? process.env.PI_MODEL;
   if (!provider || !modelId) throw new BridgeError("ERROR", "请在服务端设置 PI_PROVIDER 和 PI_MODEL");
+  let models: Models;
+  if (config.models) {
+    models = config.models;
+  } else {
+    const builtins = builtinModels();
+    if (provider === "longcat") {
+      builtins.setProvider(createProvider({
+        id: "longcat",
+        name: "LongCat",
+        baseUrl: LONGCAT_MODEL.baseUrl,
+        auth: { apiKey: envApiKeyAuth("LongCat API key", ["LONGCAT_API_KEY"]) },
+        models: [LONGCAT_MODEL],
+        api: openAIResponsesApi(),
+      }));
+    }
+    models = builtins;
+  }
   const model = models.getModel(provider, modelId);
   if (!model) throw new BridgeError("ERROR", "配置的 Pi 模型不存在于所选供应商目录中");
 
