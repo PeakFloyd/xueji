@@ -1359,30 +1359,112 @@ td .xj-mark {
 .xj-text {
   margin: 4px 0 0;
 }
-.xj-text p {
-  display: block !important;
+.xj-text .xj-f-label {
+  display: block;
+}
+.xj-text .xj-markdown {
+  display: block;
   margin: 12px 0 0;
+  max-width: 780px;
   font-size: 17px;
   line-height: 1.8;
   color: var(--p90);
-  white-space: pre-wrap;
-  max-width: 780px;
 }
-.xj-text.big p {
+.xj-text.big .xj-markdown {
   font-size: 30px;
   line-height: 1.55;
   font-weight: 500;
   color: var(--paper);
 }
-.xj-text p.clamp {
-  display: -webkit-box !important;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
+.xj-text .xj-markdown.clamp {
+  max-height: 7.2em;
   overflow: hidden;
 }
 .xj-text .xj-act {
   margin-top: 8px;
 }
+.xj-markdown {
+  overflow-wrap: anywhere;
+}
+.xj-markdown > :first-child {
+  margin-top: 0;
+}
+.xj-markdown > :last-child {
+  margin-bottom: 0;
+}
+.xj-markdown p {
+  margin: 0.5em 0;
+}
+.xj-markdown h1,
+.xj-markdown h2,
+.xj-markdown h3,
+.xj-markdown h4,
+.xj-markdown h5,
+.xj-markdown h6 {
+  margin: 0.9em 0 0.35em;
+  font-size: 1.15em;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.xj-markdown h1 { font-size: 1.4em; }
+.xj-markdown h2 { font-size: 1.25em; }
+.xj-markdown ul,
+.xj-markdown ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+.xj-markdown ul { list-style: disc outside; }
+.xj-markdown ol { list-style: decimal outside; }
+.xj-markdown li { margin: 0.15em 0; }
+.xj-markdown li::marker { color: var(--yellow); }
+.xj-markdown li > p { margin: 0.1em 0; }
+.xj-markdown a {
+  color: var(--yellow);
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+}
+.xj-markdown blockquote {
+  margin: 0.7em 0;
+  padding-left: 0.8em;
+  border-left: 3px solid var(--p55);
+  color: var(--p70);
+}
+.xj-markdown code {
+  padding: 0.1em 0.3em;
+  border: 1px solid var(--p18);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.83em;
+}
+.xj-markdown pre {
+  margin: 0.7em 0;
+  padding: 0.7em 0.9em;
+  border: 1px solid var(--p18);
+  background: var(--strip);
+  overflow-x: auto;
+  line-height: 1.55;
+}
+.xj-markdown pre code {
+  padding: 0;
+  border: 0;
+  font-size: 0.83em;
+  white-space: pre;
+}
+.xj-markdown table {
+  display: block;
+  max-width: 100%;
+  margin: 0.7em 0;
+  border-collapse: collapse;
+  overflow-x: auto;
+}
+.xj-markdown th,
+.xj-markdown td {
+  padding: 0.3em 0.6em;
+  border: 1px solid var(--p30);
+  text-align: left;
+}
+.xj-markdown th { color: var(--yellow); }
+.xj-markdown img { max-width: 100%; height: auto; }
+.xj-markdown hr { margin: 0.9em 0; border: 0; border-top: 1px solid var(--p30); }
 
 .xj-trace {
   display: flex !important;

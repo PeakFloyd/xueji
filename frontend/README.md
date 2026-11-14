@@ -48,6 +48,8 @@ python scripts/build-intro-font.py   # 需要 fontTools、brotli；首次会下�
 **后端代理** `src/app/api/xueji/{session,chat,confirm,health}`：浏览器从不接触后端 sessionId（httpOnly Cookie）；
 地址默认 `http://127.0.0.1:8090`，可用 `AGENT_API_URL` 覆盖。登录后界面会自动发出该角色的第一条指令作为“开场简报”（一次模型调用）。
 
+模型回复及错误说明按 Markdown 渲染（含 GFM 的列表、表格、删除线等），不执行原始 HTML；权限状态只根据后端受控能力的实际拒绝判定，模型解释能力边界的正常回复显示为 `REPLY`。
+
 快捷方式：`/?skip` 直接进入身份验证门；命令行里 `Alt+1…n` 触发快捷指令，`/` 聚焦命令行。系统开启“减少动态效果”时所有过渡立即完成。
 审阅用：`/?freeze` 停在交接首帧（可与 `/?capture` + `seek(20)` 逐像素比对），`window.__xueji.login(id)` 直接登录。
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { CJK_MID } from "../intro/engine/layout";
 import { TOOL_LABEL } from "./abilities";
 import { CSS_EASE, E, lerp, now, pad } from "./anim";
@@ -283,6 +285,18 @@ function WriteDoc({ e, onConfirm }: { e: Entry; onConfirm: (approved: boolean) =
   );
 }
 
+const markdownPlugins = [remarkGfm];
+
+function MarkdownBody({ text }: { text: string }) {
+  return (
+    <Markdown remarkPlugins={markdownPlugins} components={{
+      a: ({ href, title, children }) => <a href={href} title={title} target="_blank" rel="noopener noreferrer">{children}</a>,
+    }}>
+      {text}
+    </Markdown>
+  );
+}
+
 // ------------------------------------------------------------------ refusal
 
 function Refusal({ r, ask }: { r: Reply; ask: (q: string) => void }) {
@@ -296,9 +310,9 @@ function Refusal({ r, ask }: { r: Reply; ask: (q: string) => void }) {
       <p className="xj-refuse-zh xj-rise" style={d(0.18)}>
         {kind.zh}
       </p>
-      <p className="xj-refuse-text xj-rise" style={d(0.26)}>
-        {r.text || r.error}
-      </p>
+      <div className="xj-refuse-text xj-markdown xj-rise" style={d(0.26)}>
+        <MarkdownBody text={r.text || r.error || ""} />
+      </div>
       {!!r.alternatives?.length && (
         <div className="xj-alts">
           <span className="xj-f-label xj-rise" style={d(0.32)}>
@@ -322,7 +336,24 @@ const LISTS = new Set(["list_students", "list_teachers", "course_students", "fai
 
 function Statement({ text, label, big, folded }: { text: string; label: string; big: boolean; folded: boolean }) {
   const [open, setOpen] = useState(false);
-  const long = text.length > 160 || text.split("\n").length > 4;
+  const [clipped, setClipped] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const collapsedHeight = useRef(0);
+  const prominent = big && text.length <= 160 && text.split("\n").length <= 4;
+
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const measure = () => {
+      if (!open) collapsedHeight.current = parseFloat(getComputedStyle(el).maxHeight);
+      setClipped(el.scrollHeight > (open ? collapsedHeight.current : el.clientHeight) + 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [text, open, folded]);
+
   if (folded && !open)
     return (
       <section className="xj-text">
@@ -332,15 +363,15 @@ function Statement({ text, label, big, folded }: { text: string; label: string; 
       </section>
     );
   return (
-    <section className={`xj-text${big ? " big" : ""}`}>
+    <section className={`xj-text${prominent ? " big" : ""}`}>
       <span className="xj-f-label xj-rise" style={d(0.3)}>
         {label}
       </span>
-      <p className={`xj-rise${long && !open ? " clamp" : ""}`} style={d(0.34)}>
-        {text}
-      </p>
-      {long && (
-        <button type="button" className="xj-act" onClick={() => setOpen((o) => !o)}>
+      <div ref={bodyRef} className={`xj-markdown xj-rise${!open ? " clamp" : ""}`} style={d(0.34)}>
+        <MarkdownBody text={text} />
+      </div>
+      {clipped && (
+        <button type="button" className="xj-act" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           {open ? "收起 LESS" : "展开全文 MORE"}
         </button>
       )}

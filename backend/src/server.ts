@@ -234,11 +234,12 @@ export class BackendService {
     if (turn.modelError && !data.length && !failures.length) {
       throw new HttpError(502, "ERROR", "模型服务未能完成响应，请稍后重试");
     }
-    const modelRefusal = !data.length && !failures.length && /没有.{0,8}权限|无权.{0,8}查询|不能.{0,8}查询|无法.{0,8}查询|仅管理员/.test(turn.text);
+    // Only a permission failure from a controlled ability can establish DENIED.
+    // Model prose may describe restrictions while still answering the question.
     const status: Status = failures.some((failure) => failure.code === "DENIED") ? "DENIED"
       : failures.some((failure) => failure.code === "NOT_FOUND") ? "NOT_FOUND"
       : failures.some((failure) => failure.code === "INVALID" || failure.code === "ERROR") ? "ERROR"
-      : data.length ? "OK" : modelRefusal ? "DENIED" : "CHAT";
+      : data.length ? "OK" : "CHAT";
     return { ok: status === "OK" || status === "CHAT", status, text, data, sessionId: session.id,
       ...(alternatives.length ? { alternatives } : {}),
       ...(status !== "CHAT" && status !== "OK" ? { code: status === "DENIED" ? "DENIED" : status === "NOT_FOUND" ? "NOT_FOUND" : "ERROR", error: refusal || text } : {}) };

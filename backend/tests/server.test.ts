@@ -172,12 +172,15 @@ describe("Pi-backed HTTP API and Python bridge boundary", () => {
     expect(h.requests.some((request) => request.action === "invoke")).toBe(false);
   });
 
-  test("model refusal for unavailable ability has explicit DENIED status", async () => {
+  test("model explanations mentioning restrictions remain replies without a failed ability", async () => {
     const h = harness();
-    h.faux.setResponses([fauxAssistantMessage([fauxText("抱歉，您没有权限查询其他同学成绩。")])]);
+    const answer = "您好！我可以查询您的学分和课程，不能查询其他同学成绩。";
+    h.faux.setResponses([fauxAssistantMessage([fauxText(answer)])]);
     const sessionId = await session(h);
-    const reply = await h.post("/api/chat", { sessionId, message: "查其他同学的成绩" });
-    expect(reply.body.status).toBe("DENIED");
+    const reply = await h.post("/api/chat", { sessionId, message: "你可以帮我查询哪些内容？" });
+    expect(reply.body.status).toBe("CHAT");
+    expect(reply.body.ok).toBe(true);
+    expect(reply.body.text).toBe(answer);
     expect(reply.body.data).toEqual([]);
     expect(h.requests.some((request) => request.action === "invoke")).toBe(false);
   });
