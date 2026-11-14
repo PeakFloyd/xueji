@@ -20,6 +20,12 @@ db/backup/
 __pycache__/
 *.py[cod]
 
+# ---- Bun Agent 后端本地依赖、密钥与生成文件 ----
+backend/node_modules/
+backend/.env*
+!backend/.env.example
+backend/*.tsbuildinfo
+
 # ---- 本机 MCP / 工具配置（仅对应当前机器，不入库）----
 .omp/
 components.json

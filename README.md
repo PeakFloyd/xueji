@@ -1,17 +1,17 @@
 # 学籍管理系统（软件工程课程作业）
 
-后端保留 **Java 17 + SQLite（JDBC）** 的实体与数据访问层，以及 Python 实现的本地 AI 查询 API；
-前端已改为独立的 **Next.js / React / TypeScript** 工程。数据库设计满足第三范式（3NF）。
+后端使用 **Bun / TypeScript + pi-agent-core** 运行会话与工具；Python 只负责 SQLite 业务能力与权限检查，Java 17 JDBC 实体/DAO 继续保留。前端是独立的 **Next.js / React / TypeScript** 工程，本次不改前端页面。数据库设计满足第三范式（3NF）。
 
 ## 当前架构
 
 | 组件 | 位置 | 用途 |
 |---|---|---|
-| Next.js 前端 | `frontend/` | App Router、Tailwind CSS、ESLint；目前是初始化后的起始页面 |
-| AI HTTP API | `api_server.py`、`ai/` | `POST /api/ask`；身份与权限由 Python 数据层处理 |
+| Next.js 前端 | `frontend/` | App Router；业务页面与后端对接待实现 |
+| Agent HTTP API | `backend/` | pi-agent-core 会话、模型、流式响应、自定义工具与写操作二次确认 |
+| 受控数据能力 | `ai/` | Python SQLite 能力白名单、作用域/RBAC、事实模板；不直接调用模型 |
 | 数据层 | `src/xueji/entity/`、`src/xueji/dao/`、`db/` | Java JDBC 数据访问与 SQLite 建库脚本 |
 
-> 当前仅初始化了新前端工程，尚未将 AI 查询或数据管理功能接入 Next.js 页面。
+> 模型由服务端环境变量选择 pi-ai 支持的 provider/model，不再绑定本地 Ollama。不要在 Next.js 客户端暴露模型密钥；对接方法见 [`docs/API.md`](docs/API.md)。
 
 ## 项目结构
 
@@ -26,18 +26,19 @@ xueji/
 │  ├─ entity/              # 实体类（对应表结构）
 │  ├─ dao/                 # 数据访问层（JDBC，参数化 SQL）
 │  └─ db/DbUtil.java       # 数据库连接与自动建库
-├─ ai/                     # AI 查询层（四层，见 docs/AI层重构设计.md）
-│  ├─ dbcore.py            # 地基：连接(唯一入口 db)、域常量、异常、身份与作用域
-│  ├─ abilities.py         # 能力白名单：每个能力自带强制作用域
-│  ├─ data_layer.py        # 执行器与门面：execute / preview / 角色校验
-│  ├─ planner.py           # ②规划层：自然语言 → 结构化计划（LLM + 规则降级）
-│  ├─ nlg.py               # ④表达层：数字确定性模板 + 温和拒绝 + 闲聊人格
-│  └─ ai_layer.py          # 编排：会话管理、串起四层、对外 API
-├─ tests/                  # 回归测试（在数据库副本上运行，不碰真库）
-│  ├─ test_offline.py      # 离线测试：权限边界 / 数字准确性 / 模板 / 写入 / 约束
-│  ├─ test_e2e.py          # 端到端：复合问 / 指代 / 越权 / 权限说明（需 Ollama）
-│  └─ run_tests.bat        # 一键跑全部测试
-├─ api_server.py           # AI 查询 HTTP API（不再包含网页）
+├─ backend/                # Bun + pi-agent-core HTTP 服务（仅后端，无 Pi TUI）
+│  ├─ src/                # agent / tools / system-prompt / server / bridge
+│  ├─ package.json
+│  └─ .env.example
+├─ ai/                     # Python 受控业务数据层（无模型调用）
+│  ├─ dbcore.py            # 连接、域常量、身份与作用域
+│  ├─ abilities.py         # 学籍能力白名单
+│  ├─ data_layer.py        # 执行器、写入预览与角色检查
+│  ├─ facts.py             # 事实的确定性中文模板
+│  └─ tool_bridge.py       # 后端调用的 stdin/stdout JSON 桥接器
+├─ tests/                  # 数据层/桥接器回归测试（使用数据库副本）
+│  ├─ test_bridge.py
+│  └─ run_tests.bat
 ├─ db/
 │  ├─ schema.sql           # 核心 5 表结构（3NF，含范式注释与 CHECK 约束）
 │  ├─ schema_ext.sql       # 扩展 3 表（teacher/teaching/graduation_requirement）
@@ -48,9 +49,9 @@ xueji/
 │  └─ xueji.db             # SQLite 运行时数据库（由初始化脚本生成）
 ├─ lib/sqlite-jdbc.jar     # SQLite JDBC 驱动
 ├─ docs/
+│  ├─ API.md               # 给 Next.js 前端使用的 HTTP / SSE 接口协议
 │  ├─ 3NF说明文档.md        # 原 5 表逐表 3NF 论证
-│  ├─ AI层重构设计.md       # AI 层架构（权限与自由度解耦）
-│  └─ 设计说明.md           # 扩展表范式/身份模型/安全性/AI 层分层
+│  └─ 设计说明.md           # 扩展表范式/身份模型/安全性/Agent 分层
 ├─ out/                    # Java 编译输出目录（build.bat 生成）
 └─ build.bat               # 编译 Java 数据访问层
 ```
@@ -101,21 +102,25 @@ xueji/
 
 ## 运行
 
-需要 Bun 和 Python；编译 Java 数据层另需 JDK 17。首次使用先运行 `python db\init_db.py` 初始化数据库。
+需要 Bun、Python 3 和支持工具调用的云端模型密钥；编译 Java 数据层另需 JDK 17。首次使用运行 `python db\init_db.py` 初始化数据库。
+
+```bat
+cd backend
+bun install
+set PI_PROVIDER=anthropic
+set PI_MODEL=claude-sonnet-4-6
+set ANTHROPIC_API_KEY=你的密钥
+bun dev                     :: 后端默认 http://127.0.0.1:8090
+```
+
+另开终端启动独立前端：
 
 ```bat
 cd frontend
-bun dev                     :: Next.js 起始页 http://localhost:3000
+bun dev                     :: http://localhost:3000
 ```
 
-另开终端，在项目根目录运行 API 或 Java 编译命令：
-
-```bat
-python api_server.py         :: AI HTTP API http://127.0.0.1:8090/api/ask
-build.bat                    :: 可选：编译 Java 实体与 DAO
-```
-
-> Next.js 起始页尚未连接 Python API；启动 API 不会自动提供旧网页界面。
+模型、跨域、会话和请求示例见 [`docs/API.md`](docs/API.md)。前端目前仍是初始化页面，**本次没有修改其代码**。不要将未认证的演示身份接口暴露到公网；需要上线时先接入真实认证。
 
 ### 演示数据规模
 
@@ -168,48 +173,28 @@ Java 实体和 DAO 仍保留，可用于数据库操作；原桌面管理界面�
 **身份 = 主键，无账号表**：输入学号 → 学生；输入教师号 → 老师；`T001` → 管理员（也是老师）。
 角色由程序查库判定，删除即失去身份（权限动态给/收）。
 
-**AI 查询层**（Python + 本地 Ollama，离线）采用**四层架构**，核心原则是
-「**AI 给自由，数据层守边界**」：
+**AI 查询层**采用 pi-agent-core 与 Python 数据能力分层，核心原则是「Agent 负责理解与编排，数据层负责权限与事实」：
 
 | 层 | 文件 | 职责 |
 |---|---|---|
-| ① 上下文层 | `dbcore.py` | 身份 → 作用域（服务端派生，不经 LLM） |
-| ② 规划层 | `planner.py` | 自然语言 → 结构化计划（能力+参数），**不生成 SQL** |
-| ③ 执行层 | `data_layer.py` + `abilities.py` | 白名单能力 + **强制作用域**，RBAC 在此锁死 |
-| ④ 表达层 | `nlg.py` | 数字走确定性模板；越权/闲聊走**温和人格** |
+| Agent 内核 | `backend/src/agent.ts`、`backend/src/system-prompt.ts` | 模型选择、会话历史、工具循环、自定义系统提示词 |
+| 工具与 HTTP | `backend/src/tools.ts`、`backend/src/server.ts` | 受限工具、SSE、会话隔离与显式确认 |
+| 业务执行 | `ai/tool_bridge.py`、`ai/data_layer.py`、`ai/abilities.py` | 身份派生作用域、能力白名单、服务端 RBAC、写入预览/执行 |
+| 事实表达 | `ai/facts.py` | 数据库事实确定性拼装，不依赖模型生成数字 |
 
-设计要点（详见 [`docs/AI层重构设计.md`](docs/AI层重构设计.md)）：
-- **作用域由身份注入，绝不接受 LLM 传来的身份参数**（类似手机相册的"受限句柄"）
-- **数字只由 SQL + 模板产生**：实测 LLM 计数不可靠（同一问题两次答 12 和 10）
-- **越权显式拒绝且措辞温和**，不做静默改写（"以为看到别人数据、其实是自己的"更危险）
-- **Ollama 未启动也能工作**：规划降级为规则、措辞降级为内置模板
+- 模型只可调用已注册的学籍工具，不能执行任意 SQL、命令或文件读写；每次调用在服务端重验身份与权限。
+- 新增/删除学籍只能先预览，再由用户通过带 token 的确认接口触发；模型无法自行确认写入。
+- 查询结果的准确数值来自数据库与确定性事实模板；模型仅负责理解、工具选择和非事实对话。
+- 原“身份 = 主键”只是课程演示，不构成认证；后端默认只监听本机，勿直接暴露公网。
 
-### 用法一：AI HTTP API
-```bat
-python api_server.py     :: POST http://127.0.0.1:8090/api/ask
-```
-请求 JSON 包含 `user`（学号/教师号）、`question`，可选 `reset`；演示主键：学生 `20230001`、老师 `T002`、管理员 `T001`。
+### API 与测试
 
-### 用法二：命令行（身份 = 主键）
-```bat
-python ai\ai_layer.py --user 20230001 ask 我的学分和毕业还差多少
-python ai\ai_layer.py --user T002     ask 本院有多少学生
-python ai\ai_layer.py --user T001     ask 一共多少老师
-python ai\ai_layer.py --user T001     add 20240099 陈晓 男 SE2201
-python ai\ai_layer.py --user T001     del 20240099
-```
-- 无额外第三方依赖（仅 Python 标准库 + 本地 Ollama 服务）。
-- Ollama 未启动不影响数据查询（降级为规则路由 + 确定性模板作答）。
-
-### 用法三：回归测试
+请求/响应、SSE 事件与 Next.js 对接方法见 [`docs/API.md`](docs/API.md)。
 
 ```bat
-tests\run_tests.bat          :: 一键跑全部
-python tests\test_offline.py :: 离线测试（不需要 Ollama）
-python tests\test_e2e.py     :: 端到端（需要 Ollama，未启动则自动跳过）
+python tests\test_bridge.py    :: Python 数据权限与桥接器测试
+cd backend && bun test         :: 后端会话/HTTP 测试
+cd backend && bun run check    :: TypeScript 静态类型检查
 ```
 
-- **离线测试**覆盖最要紧的部分：权限边界、数字准确性、规划器规则、表达层模板、
-  受控写入、数据库约束（外键 / CHECK / 唯一）。
-- 测试全部在**数据库副本**上运行，不会污染 `db/xueji.db`。
-- 改动 AI 层代码后请先跑离线测试——它能挡住绝大多数回归。
+Python 测试使用数据库副本，不污染 `db/xueji.db`。旧的本地模型调用、规则规划器与 Python AI HTTP 入口已由 Agent 服务取代。
