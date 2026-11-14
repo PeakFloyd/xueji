@@ -6,7 +6,7 @@
 
 | 组件 | 位置 | 用途 |
 |---|---|---|
-| Next.js 前端 | `frontend/` | 开场动画 → 身份验证 → 主界面；`/api/xueji/*` 服务端代理 Agent API（会话 ID 存于 httpOnly Cookie）|
+| Next.js 前端 | `frontend/` | 开场动画 → 身份验证 → 主界面；`/admin` 后台（库表结构，仅管理员）；`/api/xueji/*` 服务端代理 Agent API（会话 ID 存于 httpOnly Cookie）|
 | Agent HTTP API | `backend/` | pi-agent-core 会话、模型、流式响应、自定义工具与写操作二次确认 |
 | 受控数据能力 | `ai/` | Python SQLite 能力白名单、作用域/RBAC、事实模板；不直接调用模型 |
 | 数据层 | `src/xueji/entity/`、`src/xueji/dao/`、`db/` | Java JDBC 数据访问与 SQLite 建库脚本 |
@@ -35,6 +35,7 @@ xueji/
 │  ├─ abilities.py         # 学籍能力白名单
 │  ├─ data_layer.py        # 执行器、写入预览与角色检查
 │  ├─ facts.py             # 事实的确定性中文模板
+│  ├─ introspect.py        # 后台只读结构快照（表/视图/约束/数据/文件逐页）
 │  └─ tool_bridge.py       # 后端调用的 stdin/stdout JSON 桥接器
 ├─ tests/                  # 数据层/桥接器回归测试（使用数据库副本）
 │  ├─ test_bridge.py

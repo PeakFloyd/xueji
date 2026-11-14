@@ -1,6 +1,8 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Handoff } from "../admin/api";
 import { H, W } from "../intro/engine/constants";
 import { deptOf } from "./abilities";
 import { now, reducedMotion } from "./anim";
@@ -11,6 +13,10 @@ import { T_CONFIRM, createScene, type Fonts, type Scene } from "./scene";
 import type { Identity } from "./types";
 
 type Phase = "gate" | "verifying" | "entering" | "console" | "leaving";
+
+// the backstage is only ever opened by an administrator: its code loads when one signs in
+const loadBackstage = () => import("../admin/Admin");
+const Backstage = dynamic(loadBackstage, { ssr: false });
 
 declare global {
   interface Window {
@@ -42,6 +48,8 @@ export default function XuejiApp({ fonts, handoff, onReady }: Props) {
   const [online, setOnline] = useState<boolean | null>(null);
   const [gateKey, setGateKey] = useState(0);
   const [entered, setEntered] = useState(false);
+  const [away, setAway] = useState(false);
+  const [backstage, setBackstage] = useState<Handoff | null>(null);
   const readyRef = useRef(onReady);
   const reduced = useRef(false);
 
@@ -149,6 +157,7 @@ export default function XuejiApp({ fonts, handoff, onReady }: Props) {
 
   const logout = useCallback(async () => {
     if (!scene || phase !== "console") return;
+    setAway(false);
     setPhase("leaving");
     void deleteSession();
     await wait(reduced.current ? 0 : 260);
@@ -172,6 +181,35 @@ export default function XuejiApp({ fonts, handoff, onReady }: Props) {
     setPhase("gate");
     scene.setStatus("denied", { label: "EXPIRED · 会话已过期", sub: "会话已失效，请重新验证身份" });
   }, [scene]);
+
+  // ---------- backstage (admin only): a layer over the console, handed the chip and the rule ----------
+  useEffect(() => {
+    if (identity?.role === "ADMIN") void loadBackstage();
+  }, [identity]);
+
+  const openBackstage = useCallback(() => {
+    if (!scene || phase !== "console" || identity?.role !== "ADMIN") return;
+    const r = reduced.current;
+    (document.activeElement as HTMLElement | null)?.blur();
+    const geo = scene.toBackstage(r);
+    setAway(true);
+    // the console collapses first; the backstage then takes over an identical frame
+    void loadBackstage().then(() => setTimeout(() => setBackstage({ ...geo, at: Date.now() }), r ? 0 : 340));
+  }, [scene, phase, identity]);
+
+  const closeBackstage = useCallback(
+    (how: "back" | "signout") => {
+      setBackstage(null);
+      if (!scene || !identity) return;
+      if (how === "signout") {
+        void logout();
+        return;
+      }
+      scene.fromBackstage({ role: identity.role, display: identity.display, ref_id: identity.ref_id, dept: deptOf(identity.scope_text) }, reduced.current);
+      setAway(false);
+    },
+    [scene, identity, logout],
+  );
 
   useEffect(() => {
     if (!scene) return;
@@ -201,12 +239,22 @@ export default function XuejiApp({ fonts, handoff, onReady }: Props) {
             />
           )}
           {scene && identity && entered && (
-            <Console scene={scene} identity={identity} leaving={phase === "leaving"} live={phase === "console"} onExit={logout} onExpired={expired} />
+            <Console
+              scene={scene}
+              identity={identity}
+              leaving={phase === "leaving"}
+              live={phase === "console"}
+              away={away}
+              onExit={logout}
+              onExpired={expired}
+              onBackstage={identity.role === "ADMIN" ? openBackstage : undefined}
+            />
           )}
         </div>
         <svg ref={hudRef} className="xj-layer xj-hud" viewBox={`0 0 ${W} ${H}`} width={W} height={H} aria-hidden="true" textRendering="geometricPrecision" />
       </div>
       <div className="xj-screen" aria-hidden="true" />
+      {backstage && <Backstage uiFont={uiFont} handoff={backstage} onClose={closeBackstage} />}
     </div>
   );
 }

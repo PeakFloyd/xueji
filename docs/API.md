@@ -69,6 +69,19 @@ POST 请求使用 `Content-Type: application/json`；流式调用选择 `/api/ch
 
 注销当前会话，清除上下文及待确认操作。身份切换时应先调用，再创建新会话。
 
+### `GET /api/sessions/{sessionId}/schema`
+
+后台“库表结构”页面使用的**只读**结构快照，仅管理员可用。服务端先重验会话身份，非管理员返回 403 `DENIED`；Python 层（`ai/introspect.py`）以 `mode=ro` 打开数据库，不接受任何 SQL 或对象名参数。回复在通用字段之外带 `schema`：
+
+| 字段 | 内容 |
+|---|---|
+| `file` | 文件名、字节数、页大小/页数、空闲页、编码、日志模式、SQLite 版本，以及 100 字节文件头（`header.header_hex` 与解析值）|
+| `integrity` | `PRAGMA integrity_check` 结果与 `foreign_key_check` 违例数 |
+| `objects[]` | 每张表/视图：`sql`（建表原文）、`note`（`db/schema*.sql` 中该对象前的设计注释）、`columns`（类型、主键序、非空、唯一、列级 CHECK、行内注释）、表级 `checks`、`fks`、`indexes`、视图的 `deps`、`row_count` 与全部 `rows`（每对象上限 1000 行）|
+| `pages[]` | 文件逐页归属：所属 B-tree、表/索引、内部页/叶页/溢出页/空闲页、单元数、已用字节、父页与子页（直接按 SQLite 文件格式解析，不依赖 `dbstat`）|
+
+Next.js 侧由 `GET /api/xueji/admin/schema` 代理（会话 ID 仍只在 httpOnly Cookie 中）。
+
 ## 状态与错误
 
 | status | 处理建议 |

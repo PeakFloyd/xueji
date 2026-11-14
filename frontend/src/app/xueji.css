@@ -1843,3 +1843,18 @@ p.xj-doc-note {
 .xj-table tr.xj-rise {
   display: table-row;
 }
+
+/* leaving: the command line's placeholder and the MORE cue collapse with everything else */
+.xj-console.is-out .xj-cmd-ph,
+.xj-console.is-out .xj-more {
+  transform-origin: 50% 100%;
+  animation: xj-sink 0.2s var(--in) both;
+}
+
+/* admin only: the door to the backstage, right-aligned under the identity column */
+.xj-backstage {
+  translate: -100% 0;
+}
+.xj-backstage > span {
+  color: var(--yellow);
+}

@@ -454,5 +454,62 @@ class TestWriteAndSchemaRegressions(unittest.TestCase):
                 )
 
 
+class TestBackstageSchema(unittest.TestCase):
+    """后台结构快照：仅管理员可见、只读、与数据库逐项一致。"""
+
+    def test_schema_snapshot_is_admin_only(self):
+        for user in (STUDENT, TEACHER):
+            with self.subTest(user=user):
+                result = bridge.handle({"action": "schema", "user": user})
+                self.assertFalse(result["ok"])
+                self.assertEqual(result["code"], "DENIED")
+                self.assertNotIn("schema", result)
+        self.assertEqual(bridge.handle({"action": "schema", "user": "nobody"})["code"], "DENIED")
+        extra = bridge.handle({"action": "schema", "user": ADMIN, "sql": "SELECT 1"})
+        self.assertEqual(extra["code"], "INVALID")
+
+    def test_schema_snapshot_matches_database(self):
+        result = bridge.handle({"action": "schema", "user": ADMIN})
+        self.assertTrue(result["ok"], result)
+        snap = result["schema"]
+        json.dumps(snap, ensure_ascii=False)  # must survive the JSON-lines boundary
+        objs = {o["name"]: o for o in snap["objects"]}
+        with sqlite3.connect(dbcore.DB_PATH) as c:
+            names = [r[0] for r in c.execute(
+                "SELECT name FROM sqlite_master WHERE type IN ('table','view') "
+                "AND name NOT LIKE 'sqlite_%'")]
+            self.assertCountEqual(objs, names)
+            for name in names:
+                self.assertEqual(objs[name]["row_count"],
+                                 c.execute('SELECT COUNT(*) FROM "%s"' % name).fetchone()[0], name)
+                self.assertEqual(len(objs[name]["rows"]), objs[name]["row_count"], name)
+            page_count = c.execute("PRAGMA page_count").fetchone()[0]
+        enroll = objs["enroll"]
+        self.assertEqual([col["name"] for col in enroll["columns"] if col["pk"]], ["stu_id", "course_id"])
+        self.assertCountEqual([(fk["from"], fk["table"]) for fk in enroll["fks"]],
+                              [("stu_id", "student"), ("course_id", "course")])
+        self.assertIn("score IS NULL OR (score >= 0 AND score <= 100)",
+                      [chk for col in enroll["columns"] for chk in col["checks"]])
+        self.assertIn("函数依赖", enroll["note"])
+        self.assertIn("v_domain_rule", objs["v_course_stat"]["deps"])
+        self.assertEqual(snap["integrity"], {"check": ["ok"], "fk_violations": 0})
+        # every page of the file is attributed, and table leaf cells add up to the row counts
+        pages = snap["pages"]
+        self.assertEqual([p["no"] for p in pages], list(range(1, page_count + 1)))
+        self.assertFalse([p for p in pages if p["kind"] == "unknown"])
+        for name in ("student", "enroll", "course"):
+            leaf_cells = sum(p["cells"] for p in pages if p["owner"] == name and p["kind"] == "leaf")
+            self.assertEqual(leaf_cells, objs[name]["row_count"], name)
+
+    def test_schema_snapshot_cannot_write(self):
+        import introspect  # type: ignore[reportMissingImports]
+        with dbcore.db_readonly() as c:
+            with self.assertRaises(sqlite3.OperationalError):
+                c.execute("DELETE FROM enroll")
+        before = os.path.getmtime(dbcore.DB_PATH)
+        introspect.snapshot()
+        self.assertEqual(os.path.getmtime(dbcore.DB_PATH), before)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./xueji.css";
+import "./admin.css";
 
 export const metadata: Metadata = {
   title: "学籍管理系统",

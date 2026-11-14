@@ -11,6 +11,7 @@ import sys
 import traceback
 
 import data_layer as dl
+import introspect
 from facts import facts_text
 
 
@@ -67,7 +68,7 @@ def handle(payload):
         if not isinstance(payload, dict):
             raise InvalidRequest("请求必须是 JSON 对象")
         action = _required_string(payload, "action")
-        if action not in ("identity", "catalog", "invoke"):
+        if action not in ("identity", "catalog", "invoke", "schema"):
             raise InvalidRequest("不支持的 action：%s" % action)
         _validate_keys(payload, {"action", "user"} if action != "invoke" else
                        {"action", "user", "ability", "args", "mode"})
@@ -85,6 +86,11 @@ def handle(payload):
             }}
         if action == "catalog":
             return {"ok": True, "catalog": _catalog(scope["role"])}
+        if action == "schema":
+            # The backstage view reads every table, so only the administrator may open it.
+            if scope["role"] != "ADMIN":
+                return _error("DENIED", "仅管理员可以查看后台库表结构")
+            return {"ok": True, "schema": introspect.snapshot()}
 
         name = _required_string(payload, "ability")
         mode = payload.get("mode", "read")
