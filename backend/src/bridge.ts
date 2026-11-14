@@ -67,6 +67,7 @@ async function limitedText(stream: ReadableStream<Uint8Array>, maxBytes: number)
 export type BridgeRequest =
   | { action: "identity"; user: string }
   | { action: "catalog"; user: string }
+  | { action: "schema"; user: string }
   | { action: "invoke"; user: string; ability: string; args: JsonObject; mode: "read" | "preview" | "execute" };
 
 export type BridgeTransport = (request: BridgeRequest, signal?: AbortSignal) => Promise<unknown>;
@@ -157,6 +158,17 @@ export class PythonBridge {
         }
         return item as unknown as Ability;
       });
+    });
+  }
+
+  /** Read-only snapshot of the whole database for the backstage page. The bridge refuses non-admins. */
+  schema(user: string): Promise<JsonObject> {
+    return this.request({ action: "schema", user }, (value) => {
+      const schema = value.schema;
+      if (!record(schema) || !Array.isArray(schema.objects) || !record(schema.file)) {
+        throw new BridgeError("ERROR", "Python 结构快照响应格式无效");
+      }
+      return schema;
     });
   }
 

@@ -14,6 +14,7 @@
 """
 
 import os
+import pathlib
 import sqlite3
 from contextlib import contextmanager
 
@@ -43,6 +44,21 @@ def db():
     except Exception:
         c.rollback()
         raise
+    finally:
+        c.close()
+
+
+@contextmanager
+def db_readonly():
+    """只读连接（后台结构查看专用）：以 `mode=ro` 打开，任何写入都会被 SQLite 拒绝。
+
+    同样开启外键开关，使 `PRAGMA foreign_key_check` 等检查与业务连接口径一致。
+    """
+    uri = pathlib.Path(DB_PATH).resolve().as_uri() + "?mode=ro"
+    c = sqlite3.connect(uri, uri=True)
+    c.execute("PRAGMA foreign_keys = ON")
+    try:
+        yield c
     finally:
         c.close()
 

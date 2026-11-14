@@ -19,12 +19,16 @@ type Props = {
   leaving: boolean;
   onExit: () => void;
   onExpired: () => void;
+  /** Admin only: open the backstage over the console. */
+  onBackstage?: () => void;
+  /** The backstage is open (or opening): everything collapses, keys are ignored. */
+  away?: boolean;
 };
 
 const TONE_COLOR = { yellow: C.yellow, red: C.red, paper: C.paper } as const;
 const CMD_FONT = 26;
 
-export default function Console({ scene, identity, live, leaving, onExit, onExpired }: Props) {
+export default function Console({ scene, identity, live, leaving, onExit, onExpired, onBackstage, away = false }: Props) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [view, setView] = useState(-1);
   const [value, setValue] = useState("");
@@ -169,7 +173,7 @@ export default function Console({ scene, identity, live, leaving, onExit, onExpi
   // Alt+1..n runs a command; "/" focuses the line from anywhere
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (leaving) return;
+      if (leaving || away) return;
       if (e.altKey && /^[1-9]$/.test(e.key)) {
         const c = commands[Number(e.key) - 1];
         if (c) {
@@ -186,7 +190,7 @@ export default function Console({ scene, identity, live, leaving, onExit, onExpi
   });
 
   const nav = (dir: -1 | 1) => setView((v) => Math.max(0, Math.min(entries.length - 1, v + dir)));
-  const out = leaving ? " is-out" : "";
+  const out = leaving || away ? " is-out" : "";
   const dept = identity.scope_text;
 
   return (
@@ -225,6 +229,17 @@ export default function Console({ scene, identity, live, leaving, onExit, onExpi
       <button type="button" className="xj-exit xj-rise" style={{ left: CONSOLE.x, top: 846, ...d(0.4) }} onClick={onExit}>
         <span aria-hidden="true">←</span> 切换身份 <i>SWITCH ID · {ROLE[role].zh}</i>
       </button>
+      {role === "ADMIN" && onBackstage && (
+        <button
+          type="button"
+          className="xj-exit xj-backstage xj-rise"
+          style={{ left: CONSOLE.x + CONSOLE.colW, top: 846, ...d(0.46) }}
+          disabled={!live || away}
+          onClick={onBackstage}
+        >
+          后台 <i>BACKSTAGE · 库表结构</i> <span aria-hidden="true">→</span>
+        </button>
+      )}
 
       <span className="xj-divider xj-drop" style={d(0.05)} aria-hidden="true" />
 

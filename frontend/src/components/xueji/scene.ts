@@ -87,6 +87,12 @@ class Roll {
   hide(delay = 0, at = now()) {
     this.k.to(0, 0.16, delay, E.in, at);
   }
+  /** Show `next` at once (no roll): used when another layer has just shown the same text in place. */
+  set(next: string) {
+    this.queue = [];
+    this.shown = next;
+    this.k.set(1);
+  }
   render(t: number) {
     while (this.queue.length && this.queue[0].at <= t) this.shown = this.queue.shift()!.text;
     setText(this.el, this.shown);
@@ -677,6 +683,56 @@ export function createScene(svgs: { bg: SVGSVGElement; main: SVGSVGElement; hud:
     setChipInk(true, at);
   };
 
+  /**
+   * Console -> backstage: the name sinks into the rule and the caption and role collapse; the chip and
+   * the rule stay. Returns where they are (frame px): the backstage layer starts exactly there.
+   */
+  const toBackstage = (reduced: boolean) => {
+    const at = now() - (reduced ? 10 : 0);
+    caretMode = "hidden";
+    sinkAll(big, 0, 0.025, at);
+    liveText = "";
+    subRoll.hide(0.04, at);
+    roleGhostK.to(0, 0.24, 0, E.in, at);
+    seal.size.to(0, 0.2, 0.1, E.in, at);
+    chipRoll.roll("BACKSTAGE · 后台", 0.12, at);
+    chip.w.to(chipW("BACKSTAGE · 后台", chip.size.target), 0.3, 0.12, E.inOut, at);
+    seqRoll.roll("BACKSTAGE · 后台", 0, at);
+    const ruleH = T.ruleH * S_CON;
+    return {
+      chip: { x: chip.x.target, y: chip.y.target, h: chip.h.target, size: chip.size.target, text: "BACKSTAGE · 后台" },
+      rule: { x: CONSOLE.x, y: CONSOLE.ruleY, w: CONSOLE.colW, h: ruleH },
+      label: "BACKSTAGE · 后台",
+      tc: tcBase + (now() - tcFrom),
+    };
+  };
+
+  /**
+   * Backstage -> console: the backstage layer has just put the chip (with the role label) and the rule
+   * back where they were, and is removed; from here the name rises again and the caption returns.
+   */
+  const fromBackstage = (who: { role: Role; display: string; ref_id: string; dept: string | null }, reduced: boolean) => {
+    const at = now() - (reduced ? 10 : 0);
+    const role = ROLE[who.role];
+    const roleLab = `${role.en} · ${role.zh}`;
+    chipRoll.set(roleLab);
+    chip.w.set(chipW(roleLab, chip.size.target));
+    seqRoll.set("CONSOLE · 主界面");
+    const name = who.display || who.ref_id;
+    bigSize = fitSize(name);
+    const { xs } = layout(name, bigSize);
+    name.split("").forEach((ch, i) => {
+      const b = newBig(ch, xs[i], false);
+      b.rise.to(1, 0.36, 0.08 + i * 0.06, E.out, at);
+      b.weight.to(900, 0.44, 0.08 + i * 0.06, E.out, at);
+      big.push(b);
+    });
+    liveText = name;
+    subRoll.roll(`${who.ref_id}${who.dept ? ` · ${who.dept}` : " · 全校"}`, 0.2, at);
+    seal.size.to(46, 0.3, 0.3, E.out, at);
+    roleGhostK.to(1, 0.5, 0.3, E.out, at);
+  };
+
   // ------------------------------------------------------------ HUD controls for the console
 
   /** Gate caption (what is being typed is recognised as...). Ignored outside the idle gate. */
@@ -704,6 +760,8 @@ export function createScene(svgs: { bg: SVGSVGElement; main: SVGSVGElement; hud:
     setStatus,
     confirm,
     toGate,
+    toBackstage,
+    fromBackstage,
     releaseCaret,
     caption,
     hudLabel,

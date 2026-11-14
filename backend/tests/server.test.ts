@@ -9,6 +9,7 @@ const CREDIT = { name: "my_credit", roles: ["STUDENT"], args: {}, doc: "查询�
 const OTHER_CREDIT = { name: "student_credit_of", roles: ["ADMIN"], args: { stu_id: "学号" }, doc: "查询其他学生学分", write: false };
 const ADD_STUDENT = { name: "add_student", roles: ["ADMIN"],
   args: { stu_id: "学号", stu_name: "姓名", gender: "性别", class_id: "班号" }, doc: "新增学生", write: true };
+const SNAPSHOT = { file: { name: "xueji.db", page_count: 32 }, objects: [{ name: "student", type: "table", row_count: 50 }], pages: [] };
 const NEW_STUDENT = { stu_id: "20240012", stu_name: "小王", gender: "男", class_id: "CS2301" };
 
 function harness(user = "S001") {
@@ -20,6 +21,9 @@ function harness(user = "S001") {
     requests.push(request);
     if (request.action === "identity") return { ok: true, identity };
     if (request.action === "catalog") return { ok: true, catalog: [CREDIT, OTHER_CREDIT, ADD_STUDENT] };
+    if (request.action === "schema") {
+      return identity.role === "ADMIN" ? { ok: true, schema: SNAPSHOT } : { ok: false, code: "DENIED", error: "仅管理员可以查看后台库表结构" };
+    }
     if (request.ability === "my_credit" && request.mode === "read") {
       return { ok: true, fact: { kind: "credit", earned: 32 }, text: "已修32学分" };
     }
@@ -241,5 +245,31 @@ describe("Pi-backed HTTP API and Python bridge boundary", () => {
     expect(changed.httpStatus).toBe(403);
     const removed = await h.post("/api/chat", { sessionId, message: "你好" });
     expect(removed.httpStatus).toBe(404);
+  });
+
+  test("backstage schema snapshot is admin-only and re-verifies the session identity", async () => {
+    const get = (h: ReturnType<typeof harness>, id: string) =>
+      h.service.fetch(new Request(`http://localhost:8090/api/sessions/${id}/schema`));
+    const student = harness();
+    const studentSession = await session(student);
+    const denied = await get(student, studentSession);
+    expect(denied.status).toBe(403);
+    expect((await denied.json() as ApiReply).status).toBe("DENIED");
+    expect(student.requests.some((request) => request.action === "schema")).toBe(false);
+
+    const admin = harness("T001");
+    const adminSession = await session(admin);
+    const ok = await get(admin, adminSession);
+    expect(ok.status).toBe(200);
+    const reply = await ok.json() as ApiReply;
+    expect(reply.status).toBe("OK");
+    expect(reply.schema).toEqual(SNAPSHOT);
+    expect(reply.sessionId).toBeUndefined();
+    expect(admin.requests.filter((request) => request.action === "schema")).toHaveLength(1);
+
+    expect((await get(admin, "not-a-uuid")).status).toBe(400);
+    admin.setIdentity(STUDENT);
+    expect((await get(admin, adminSession)).status).toBe(403);
+    expect((await get(admin, adminSession)).status).toBe(404);
   });
 });

@@ -32,6 +32,7 @@ export interface ApiReply {
   code?: BridgeCode;
   error?: string;
   alternatives?: string[];
+  schema?: JsonObject;
 }
 
 export class HttpError extends Error {
@@ -46,6 +47,7 @@ const MAX_MESSAGE_LENGTH = 4000;
 const CONFIRM_TTL_MS = 300_000;
 const DEFAULT_SESSION_TTL_MS = 1_800_000;
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+const SCHEMA_PATH = /^\/api\/sessions\/([^/]+)\/schema$/;
 
 function jsonObject(value: unknown): value is JsonObject {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -278,6 +280,15 @@ export class BackendService {
     });
   }
 
+  /** Backstage snapshot: the session's identity is re-verified, then only an administrator may read it. */
+  private async schema(id: string): Promise<ApiReply> {
+    return this.sessionTask(id, async (session) => {
+      if (session.identity.role !== "ADMIN") throw new HttpError(403, "DENIED", "仅管理员可以查看后台库表结构");
+      const schema = await this.bridge.schema(session.user);
+      return { ok: true, status: "OK", text: "结构快照已生成", data: [], identity: session.identity, schema };
+    });
+  }
+
   async fetch(request: Request): Promise<Response> {
     const path = new URL(request.url).pathname;
     try {
@@ -347,6 +358,10 @@ export class BackendService {
         const token = validatedId(body.token, "token");
         if (typeof body.confirm !== "boolean") throw new HttpError(400, "INVALID", "confirm 必须是布尔值");
         return this.response(request, await this.confirm(id, token, body.confirm));
+      }
+      const schemaPath = request.method === "GET" ? SCHEMA_PATH.exec(path) : null;
+      if (schemaPath) {
+        return this.response(request, await this.schema(validatedId(schemaPath[1], "sessionId")));
       }
       if (request.method === "DELETE" && path.startsWith("/api/sessions/")) {
         const id = validatedId(path.slice("/api/sessions/".length), "sessionId");
