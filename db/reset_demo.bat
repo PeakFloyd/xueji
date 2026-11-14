@@ -3,7 +3,7 @@ REM ============================================================
 REM  XueJi - reset the demo database to its pristine state
 REM  (deterministic rebuild from seed_data.sql; auto-backup first)
 REM
-REM  Use this after manual testing via webui.py / CLI, because those
+REM  Use this after manual testing via api_server.py / CLI, because those
 REM  write to the REAL database.
 REM ============================================================
 chcp 65001 >nul

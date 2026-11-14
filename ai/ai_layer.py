@@ -20,7 +20,7 @@
 
 对外接口
 --------
-  handle(question, pk, reset=False) -> dict   # 推荐（webui 使用）
+  handle(question, pk, reset=False) -> dict   # 推荐（api_server 使用）
   run(question, pk) -> (answer, data)         # 兼容旧调用
 """
 import argparse

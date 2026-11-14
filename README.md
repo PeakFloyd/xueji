@@ -1,37 +1,31 @@
 # 学籍管理系统（软件工程课程作业）
 
-基于 Java 的学籍管理系统，采用 **JDK17 + Swing GUI + SQLite(JDBC)**，数据库设计满足 **第三范式(3NF)**，
-并提供一套**本地、离线**的 AI 自然语言查询层。
+后端保留 **Java 17 + SQLite（JDBC）** 的实体与数据访问层，以及 Python 实现的本地 AI 查询 API；
+前端已改为独立的 **Next.js / React / TypeScript** 工程。数据库设计满足第三范式（3NF）。
 
-## 项目定位：两个前端，一套数据库
+## 当前架构
 
-| 前端 | 启动方式 | 面向对象 | 权限模型 |
-|---|---|---|---|
-| **管理员控制台**（Java Swing） | `run.bat` | 系统管理员 | 本地运行、无需登录，可管理**全部 8 张业务表** |
-| **角色化自助端**（网页） | `python webui.py` | 学生 / 教师 / 管理员 | **身份 = 主键**，RBAC 严格限制可查范围 |
+| 组件 | 位置 | 用途 |
+|---|---|---|
+| Next.js 前端 | `frontend/` | App Router、Tailwind CSS、ESLint；目前是初始化后的起始页面 |
+| AI HTTP API | `api_server.py`、`ai/` | `POST /api/ask`；身份与权限由 Python 数据层处理 |
+| 数据层 | `src/xueji/entity/`、`src/xueji/dao/`、`db/` | Java JDBC 数据访问与 SQLite 建库脚本 |
 
-两者读写**同一份** `db/xueji.db`：Java 端负责基础数据的维护（增删改查），
-网页端负责各类角色用自然语言查询与受控操作。这样分工明确、边界清晰。
-
-> 为什么桌面端不设登录？因为它定位为**本地管理员后台**，运行在可信机器上；
-> 真正的权限控制发生在面向他人的网页端（学生/教师自助端）。
+> 当前仅初始化了新前端工程，尚未将 AI 查询或数据管理功能接入 Next.js 页面。
 
 ## 项目结构
 
 ```
 xueji/
-├─ src/xueji/              # Java 源码（管理员控制台）
-│  ├─ Main.java            # 程序入口
-│  ├─ entity/              # 实体类（对应表结构，共 8 个）
-│  ├─ dao/                 # 数据访问层（JDBC 增删改查，PreparedStatement 防注入）
-│  ├─ db/DbUtil.java       # 数据库连接与自动建库
-│  └─ ui/                  # Swing 界面
-│     ├─ MainFrame.java        # 主窗口（页签 + 状态栏）
-│     ├─ CrudPanel.java        # 通用单表 CRUD 面板（复用）
-│     ├─ TeachingPanel.java    # 授课管理（m:n 专用）
-│     ├─ GradRequirementPanel.java # 毕业要求（专用）
-│     ├─ EnrollPanel.java      # 选课与成绩 + 统计
-│     └─ FieldFormDialog.java  # 通用表单对话框
+├─ frontend/               # Next.js + React + TypeScript（Bun 管理）
+│  ├─ src/app/             # App Router 页面与布局
+│  ├─ public/              # Next.js 脚手架自带资源
+│  ├─ package.json
+│  └─ bun.lock
+├─ src/xueji/              # Java 实体、DAO 与数据库连接（无桌面界面）
+│  ├─ entity/              # 实体类（对应表结构）
+│  ├─ dao/                 # 数据访问层（JDBC，参数化 SQL）
+│  └─ db/DbUtil.java       # 数据库连接与自动建库
 ├─ ai/                     # AI 查询层（四层，见 docs/AI层重构设计.md）
 │  ├─ dbcore.py            # 地基：连接(唯一入口 db)、域常量、异常、身份与作用域
 │  ├─ abilities.py         # 能力白名单：每个能力自带强制作用域
@@ -43,7 +37,7 @@ xueji/
 │  ├─ test_offline.py      # 离线测试：权限边界 / 数字准确性 / 模板 / 写入 / 约束
 │  ├─ test_e2e.py          # 端到端：复合问 / 指代 / 越权 / 权限说明（需 Ollama）
 │  └─ run_tests.bat        # 一键跑全部测试
-├─ webui.py                # 角色化自助端网页（零第三方依赖）
+├─ api_server.py           # AI 查询 HTTP API（不再包含网页）
 ├─ db/
 │  ├─ schema.sql           # 核心 5 表结构（3NF，含范式注释与 CHECK 约束）
 │  ├─ schema_ext.sql       # 扩展 3 表（teacher/teaching/graduation_requirement）
@@ -51,15 +45,14 @@ xueji/
 │  ├─ gen_seed.py          # 演示数据生成器（确定性，输出 seed_data.sql）
 │  ├─ seed_data.sql        # 全量演示数据
 │  ├─ init_db.py           # 数据库初始化/重建脚本（带备份）
-│  └─ xueji.db             # SQLite 数据库（两个前端共用）
+│  └─ xueji.db             # SQLite 运行时数据库（由初始化脚本生成）
 ├─ lib/sqlite-jdbc.jar     # SQLite JDBC 驱动
 ├─ docs/
 │  ├─ 3NF说明文档.md        # 原 5 表逐表 3NF 论证
 │  ├─ AI层重构设计.md       # AI 层架构（权限与自由度解耦）
 │  └─ 设计说明.md           # 扩展表范式/身份模型/安全性/AI 层分层
-├─ out/                    # 编译输出目录（build.bat 生成）
-├─ build.bat               # 一键编译
-└─ run.bat                 # 一键运行（管理员控制台）
+├─ out/                    # Java 编译输出目录（build.bat 生成）
+└─ build.bat               # 编译 Java 数据访问层
 ```
 
 ## 数据模型（均满足 3NF）
@@ -108,14 +101,21 @@ xueji/
 
 ## 运行
 
-环境需 JDK 17。双击或在命令行执行：
+需要 Bun 和 Python；编译 Java 数据层另需 JDK 17。首次使用先运行 `python db\init_db.py` 初始化数据库。
 
 ```bat
-build.bat   :: 编译
-run.bat     :: 运行图形界面
+cd frontend
+bun dev                     :: Next.js 起始页 http://localhost:3000
 ```
 
-程序首次运行时会自动创建数据库并载入演示数据。
+另开终端，在项目根目录运行 API 或 Java 编译命令：
+
+```bat
+python api_server.py         :: AI HTTP API http://127.0.0.1:8090/api/ask
+build.bat                    :: 可选：编译 Java 实体与 DAO
+```
+
+> Next.js 起始页尚未连接 Python API；启动 API 不会自动提供旧网页界面。
 
 ### 演示数据规模
 
@@ -147,26 +147,10 @@ python db\init_db.py --fresh     :: 删库重建（结构 + 数据全部重建�
 > 学号仍**永久留在台账**中不再复用；因此还原要用**重建**，而不是手工删除。
 > 自动化测试（`tests\`）不受此影响：它们跑在**数据库副本**上，不碰真库。
 
-## 管理员控制台功能（覆盖全部 8 张业务表）
+## 数据维护
 
-> 另有第 9 张表 `issued_student_id`（学号台账）属**系统内部数据**，
-> 由新增学籍流程自动维护，**不提供手工增删改**——手工删台账等于允许学号复用，违背编号策略。
-
-页签顺序与职责：
-
-| 页签 | 覆盖表 | 操作 |
-|---|---|---|
-| 系管理 | department | 增删改查 |
-| 班级管理 | clazz | 增删改查 |
-| 学生管理 | student | 增删改查 |
-| 教师管理 | teacher | 增删改查 |
-| 课程管理 | course | 增删改查 |
-| 授课管理 | teaching | 建立/解除 教师↔课程 关系 |
-| 毕业要求 | graduation_requirement | 设置各系毕业所需学分 |
-| 选课与统计 | enroll | 选课、录入/修改成绩、退选 + 统计报表 |
-
-- 底部状态栏实时显示：系 / 班级 / 学生 / 教师 / 课程 的数量。
-- 所有 SQL 均为参数化查询，防止注入；外键约束保证参照完整性。
+Java 实体和 DAO 仍保留，可用于数据库操作；原桌面管理界面及其启动脚本已移除。
+新前端目前只包含脚手架，尚未提供数据管理页面。第 9 张表 `issued_student_id`（学号台账）仍由数据层维护，不应手工删除历史学号。
 
 ## 作业文档
 
@@ -200,11 +184,11 @@ python db\init_db.py --fresh     :: 删库重建（结构 + 数据全部重建�
 - **越权显式拒绝且措辞温和**，不做静默改写（"以为看到别人数据、其实是自己的"更危险）
 - **Ollama 未启动也能工作**：规划降级为规则、措辞降级为内置模板
 
-### 用法一：网页界面（推荐，不用命令行）
+### 用法一：AI HTTP API
 ```bat
-python webui.py        :: 打开 http://127.0.0.1:8090 ，输入学号/教师号登录
+python api_server.py     :: POST http://127.0.0.1:8090/api/ask
 ```
-演示主键：学生 `20230001`、老师 `T002`、管理员 `T001`。
+请求 JSON 包含 `user`（学号/教师号）、`question`，可选 `reset`；演示主键：学生 `20230001`、老师 `T002`、管理员 `T001`。
 
 ### 用法二：命令行（身份 = 主键）
 ```bat
