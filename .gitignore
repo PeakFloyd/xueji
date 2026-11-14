@@ -24,6 +24,9 @@ __pycache__/
 .omp/
 components.json
 
+# ---- 本地参考素材（运行所需音频在 frontend/public/audio/）----
+/resources/
+
 # ---- 编辑器 / 系统 ----
 .vscode/
 .idea/
