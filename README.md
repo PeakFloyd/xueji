@@ -18,7 +18,15 @@
 ```
 xueji/
 ├─ frontend/               # Next.js + React + TypeScript（Bun 管理）
-│  ├─ src/app/             # App Router 页面与布局
+│  ├─ src/app/             # App Router 页面、布局与样式
+│  │  ├─ admin/page.tsx    # 管理员后台入口（/admin）
+│  │  ├─ admin.css         # 后台样式
+│  │  └─ api/xueji/        # 会话/聊天/确认/健康等服务端代理
+│  │     └─ admin/schema/route.ts  # 后台只读结构快照代理
+│  ├─ src/components/      # 开场动画、学籍主界面与管理员后台
+│  │  ├─ intro/            # 开场动画
+│  │  ├─ xueji/            # 身份验证与主界面
+│  │  └─ admin/            # 库表总图、对象档案、数据行与 DDL
 │  ├─ public/              # Next.js 脚手架自带资源
 │  ├─ package.json
 │  └─ bun.lock
@@ -28,6 +36,7 @@ xueji/
 │  └─ db/DbUtil.java       # 数据库连接与自动建库
 ├─ backend/                # Bun + pi-agent-core HTTP 服务（仅后端，无 Pi TUI）
 │  ├─ src/                # agent / tools / system-prompt / server / bridge
+│  ├─ tests/              # 后端会话与 HTTP 回归测试
 │  ├─ package.json
 │  └─ .env.example
 ├─ ai/                     # Python 受控业务数据层（无模型调用）
@@ -51,6 +60,7 @@ xueji/
 ├─ lib/sqlite-jdbc.jar     # SQLite JDBC 驱动
 ├─ docs/
 │  ├─ API.md               # 给 Next.js 前端使用的 HTTP / SSE 接口协议
+│  ├─ AI层重构设计.md        # Agent 与 Python 数据层的重构设计
 │  ├─ 3NF说明文档.md        # 原 5 表逐表 3NF 论证
 │  └─ 设计说明.md           # 扩展表范式/身份模型/安全性/Agent 分层
 ├─ out/                    # Java 编译输出目录（build.bat 生成）
