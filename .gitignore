@@ -20,6 +20,10 @@ db/backup/
 __pycache__/
 *.py[cod]
 
+# ---- 本机 MCP / 工具配置（仅对应当前机器，不入库）----
+.omp/
+components.json
+
 # ---- 编辑器 / 系统 ----
 .vscode/
 .idea/
