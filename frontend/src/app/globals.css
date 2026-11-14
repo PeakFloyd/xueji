@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ---------- intro sequence (src/components/intro) ---------- */
+.intro-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+  color: #f2f0ea;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+  outline: none;
+  --k: 1;
+}
+
+.intro-root[data-phase="gate"] {
+  cursor: pointer;
+}
+
+.intro-stage {
+  position: absolute;
+  inset: 0;
+}
+
+/* Fine screen texture, as in the reference frames: it only shows on light ink. */
+.intro-screen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.2) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
+}
+
+/* Controls sit in the bottom letterbox bar, centred. */
+.intro-controls {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 510px * var(--k));
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 8px;
+}
+
+.intro-btn {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: rgb(242 240 234 / 0.5);
+  background: none;
+  border: 0;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: color 160ms linear;
+}
+
+.intro-btn:hover {
+  color: #f2f0ea;
+}
+
+.intro-btn:focus-visible {
+  outline: 1px solid #ffd21f;
+  outline-offset: 2px;
+  color: #f2f0ea;
+}
+
+.intro-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

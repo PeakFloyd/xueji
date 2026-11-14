@@ -2,7 +2,7 @@
 
 ## 一、系统概述
 
-本系统是一套**学籍管理系统**桌面应用，采用 Java(Swing) + SQLite 实现，用于对系、班级、学生、课程以及学生选课情况进行管理与统计。
+本系统采用 SQLite 存储学籍数据；Java 实体与 DAO、Python AI 查询层保留，前端工程位于 `frontend/`（Next.js）。本文重点论证系、班级、学生、课程及选课五张基础表的第三范式。
 
 系统在数据库设计阶段，严格按照**关系数据库规范化理论**对数据模型进行了分析与分解，使所有关系模式都达到了**第三范式(3NF)**，从而**最大程度避免数据冗余、插入异常、删除异常与修改异常**。
 
@@ -131,20 +131,18 @@
 
 ## 六、系统实现
 
-- **技术**：Java JDK17 + Swing GUI + SQLite（JDBC）
-- **数据库**：`db/xueji.db`（由 `db/schema.sql` 首次运行自动创建）
-- **分层结构**（体现软件工程分层 / 关注点分离）：
+- **技术**：Java JDK 17 + SQLite（JDBC），Python AI API，Next.js / React 前端脚手架
+- **数据库**：`db/xueji.db`（运行 `python db/init_db.py` 创建）
+- **分层结构**：
   - `entity` —— 实体类，对应表结构
   - `dao` —— 数据访问层，封装 JDBC 增删改查
   - `db` —— 数据库连接与初始化
-  - `ui` —— Swing 界面层（主窗口、通用 CRUD 面板、选课统计面板）
+  - `frontend/src/app` —— Next.js 页面目录（当前仅脚手架）
 
 ### 运行方法
 
-```bat
-build.bat   :: 编译（JDK17）
-run.bat     :: 运行图形界面
-```
+在根目录运行 `python db/init_db.py` 初始化数据库；再在 `frontend/` 中运行 `bun dev`。
+Java 数据访问层可在 Windows 上运行 `build.bat` 编译。
 
 ---
 

@@ -1,49 +1,44 @@
 # 学籍管理系统（软件工程课程作业）
 
-基于 Java 的学籍管理系统，采用 **JDK17 + Swing GUI + SQLite(JDBC)**，数据库设计满足 **第三范式(3NF)**，
-并提供一套**本地、离线**的 AI 自然语言查询层。
+后端使用 **Bun / TypeScript + pi-agent-core** 运行会话与工具；Python 只负责 SQLite 业务能力与权限检查，Java 17 JDBC 实体/DAO 继续保留。前端是独立的 **Next.js / React / TypeScript** 工程：开场动画之后进入身份验证与主界面，经 Next.js 服务端代理调用 Agent API。数据库设计满足第三范式（3NF）。
 
-## 项目定位：两个前端，一套数据库
+## 当前架构
 
-| 前端 | 启动方式 | 面向对象 | 权限模型 |
-|---|---|---|---|
-| **管理员控制台**（Java Swing） | `run.bat` | 系统管理员 | 本地运行、无需登录，可管理**全部 8 张业务表** |
-| **角色化自助端**（网页） | `python webui.py` | 学生 / 教师 / 管理员 | **身份 = 主键**，RBAC 严格限制可查范围 |
+| 组件 | 位置 | 用途 |
+|---|---|---|
+| Next.js 前端 | `frontend/` | 开场动画 → 身份验证 → 主界面；`/api/xueji/*` 服务端代理 Agent API（会话 ID 存于 httpOnly Cookie）|
+| Agent HTTP API | `backend/` | pi-agent-core 会话、模型、流式响应、自定义工具与写操作二次确认 |
+| 受控数据能力 | `ai/` | Python SQLite 能力白名单、作用域/RBAC、事实模板；不直接调用模型 |
+| 数据层 | `src/xueji/entity/`、`src/xueji/dao/`、`db/` | Java JDBC 数据访问与 SQLite 建库脚本 |
 
-两者读写**同一份** `db/xueji.db`：Java 端负责基础数据的维护（增删改查），
-网页端负责各类角色用自然语言查询与受控操作。这样分工明确、边界清晰。
-
-> 为什么桌面端不设登录？因为它定位为**本地管理员后台**，运行在可信机器上；
-> 真正的权限控制发生在面向他人的网页端（学生/教师自助端）。
+> 模型由服务端环境变量选择 pi-ai 支持的 provider/model，不再绑定本地 Ollama。不要在 Next.js 客户端暴露模型密钥；对接方法见 [`docs/API.md`](docs/API.md)。
 
 ## 项目结构
 
 ```
 xueji/
-├─ src/xueji/              # Java 源码（管理员控制台）
-│  ├─ Main.java            # 程序入口
-│  ├─ entity/              # 实体类（对应表结构，共 8 个）
-│  ├─ dao/                 # 数据访问层（JDBC 增删改查，PreparedStatement 防注入）
-│  ├─ db/DbUtil.java       # 数据库连接与自动建库
-│  └─ ui/                  # Swing 界面
-│     ├─ MainFrame.java        # 主窗口（页签 + 状态栏）
-│     ├─ CrudPanel.java        # 通用单表 CRUD 面板（复用）
-│     ├─ TeachingPanel.java    # 授课管理（m:n 专用）
-│     ├─ GradRequirementPanel.java # 毕业要求（专用）
-│     ├─ EnrollPanel.java      # 选课与成绩 + 统计
-│     └─ FieldFormDialog.java  # 通用表单对话框
-├─ ai/                     # AI 查询层（四层，见 docs/AI层重构设计.md）
-│  ├─ dbcore.py            # 地基：连接(唯一入口 db)、域常量、异常、身份与作用域
-│  ├─ abilities.py         # 能力白名单：每个能力自带强制作用域
-│  ├─ data_layer.py        # 执行器与门面：execute / preview / 角色校验
-│  ├─ planner.py           # ②规划层：自然语言 → 结构化计划（LLM + 规则降级）
-│  ├─ nlg.py               # ④表达层：数字确定性模板 + 温和拒绝 + 闲聊人格
-│  └─ ai_layer.py          # 编排：会话管理、串起四层、对外 API
-├─ tests/                  # 回归测试（在数据库副本上运行，不碰真库）
-│  ├─ test_offline.py      # 离线测试：权限边界 / 数字准确性 / 模板 / 写入 / 约束
-│  ├─ test_e2e.py          # 端到端：复合问 / 指代 / 越权 / 权限说明（需 Ollama）
-│  └─ run_tests.bat        # 一键跑全部测试
-├─ webui.py                # 角色化自助端网页（零第三方依赖）
+├─ frontend/               # Next.js + React + TypeScript（Bun 管理）
+│  ├─ src/app/             # App Router 页面与布局
+│  ├─ public/              # Next.js 脚手架自带资源
+│  ├─ package.json
+│  └─ bun.lock
+├─ src/xueji/              # Java 实体、DAO 与数据库连接（无桌面界面）
+│  ├─ entity/              # 实体类（对应表结构）
+│  ├─ dao/                 # 数据访问层（JDBC，参数化 SQL）
+│  └─ db/DbUtil.java       # 数据库连接与自动建库
+├─ backend/                # Bun + pi-agent-core HTTP 服务（仅后端，无 Pi TUI）
+│  ├─ src/                # agent / tools / system-prompt / server / bridge
+│  ├─ package.json
+│  └─ .env.example
+├─ ai/                     # Python 受控业务数据层（无模型调用）
+│  ├─ dbcore.py            # 连接、域常量、身份与作用域
+│  ├─ abilities.py         # 学籍能力白名单
+│  ├─ data_layer.py        # 执行器、写入预览与角色检查
+│  ├─ facts.py             # 事实的确定性中文模板
+│  └─ tool_bridge.py       # 后端调用的 stdin/stdout JSON 桥接器
+├─ tests/                  # 数据层/桥接器回归测试（使用数据库副本）
+│  ├─ test_bridge.py
+│  └─ run_tests.bat
 ├─ db/
 │  ├─ schema.sql           # 核心 5 表结构（3NF，含范式注释与 CHECK 约束）
 │  ├─ schema_ext.sql       # 扩展 3 表（teacher/teaching/graduation_requirement）
@@ -51,15 +46,14 @@ xueji/
 │  ├─ gen_seed.py          # 演示数据生成器（确定性，输出 seed_data.sql）
 │  ├─ seed_data.sql        # 全量演示数据
 │  ├─ init_db.py           # 数据库初始化/重建脚本（带备份）
-│  └─ xueji.db             # SQLite 数据库（两个前端共用）
+│  └─ xueji.db             # SQLite 运行时数据库（由初始化脚本生成）
 ├─ lib/sqlite-jdbc.jar     # SQLite JDBC 驱动
 ├─ docs/
+│  ├─ API.md               # 给 Next.js 前端使用的 HTTP / SSE 接口协议
 │  ├─ 3NF说明文档.md        # 原 5 表逐表 3NF 论证
-│  ├─ AI层重构设计.md       # AI 层架构（权限与自由度解耦）
-│  └─ 设计说明.md           # 扩展表范式/身份模型/安全性/AI 层分层
-├─ out/                    # 编译输出目录（build.bat 生成）
-├─ build.bat               # 一键编译
-└─ run.bat                 # 一键运行（管理员控制台）
+│  └─ 设计说明.md           # 扩展表范式/身份模型/安全性/Agent 分层
+├─ out/                    # Java 编译输出目录（build.bat 生成）
+└─ build.bat               # 编译 Java 数据访问层
 ```
 
 ## 数据模型（均满足 3NF）
@@ -108,14 +102,27 @@ xueji/
 
 ## 运行
 
-环境需 JDK 17。双击或在命令行执行：
+需要 Bun、Python 3 和支持工具调用的云端模型密钥；编译 Java 数据层另需 JDK 17。首次使用运行 `python db\init_db.py` 初始化数据库。
 
 ```bat
-build.bat   :: 编译
-run.bat     :: 运行图形界面
+cd backend
+bun install
+set PI_PROVIDER=anthropic
+set PI_MODEL=claude-sonnet-4-6
+set ANTHROPIC_API_KEY=你的密钥
+bun dev                     :: 后端默认 http://127.0.0.1:8090
 ```
 
-程序首次运行时会自动创建数据库并载入演示数据。
+如使用 LongCat-2.5，在 `backend` 目录将 `.env.example` 复制为 `.env`，设置 `PI_PROVIDER=longcat`、`PI_MODEL=LongCat-2.5`、`LONGCAT_API_KEY=你的密钥`，再重启 `bun dev`。LongCat 走 OpenAI Responses 接口；`.env` 已被 Git 忽略，请勿将密钥写入前端。
+
+另开终端启动独立前端：
+
+```bat
+cd frontend
+bun dev                     :: http://localhost:3000
+```
+
+模型、跨域、会话和请求示例见 [`docs/API.md`](docs/API.md)。前端说明见 [`frontend/README.md`](frontend/README.md)。不要将未认证的演示身份接口暴露到公网；需要上线时先接入真实认证。
 
 ### 演示数据规模
 
@@ -147,26 +154,10 @@ python db\init_db.py --fresh     :: 删库重建（结构 + 数据全部重建�
 > 学号仍**永久留在台账**中不再复用；因此还原要用**重建**，而不是手工删除。
 > 自动化测试（`tests\`）不受此影响：它们跑在**数据库副本**上，不碰真库。
 
-## 管理员控制台功能（覆盖全部 8 张业务表）
+## 数据维护
 
-> 另有第 9 张表 `issued_student_id`（学号台账）属**系统内部数据**，
-> 由新增学籍流程自动维护，**不提供手工增删改**——手工删台账等于允许学号复用，违背编号策略。
-
-页签顺序与职责：
-
-| 页签 | 覆盖表 | 操作 |
-|---|---|---|
-| 系管理 | department | 增删改查 |
-| 班级管理 | clazz | 增删改查 |
-| 学生管理 | student | 增删改查 |
-| 教师管理 | teacher | 增删改查 |
-| 课程管理 | course | 增删改查 |
-| 授课管理 | teaching | 建立/解除 教师↔课程 关系 |
-| 毕业要求 | graduation_requirement | 设置各系毕业所需学分 |
-| 选课与统计 | enroll | 选课、录入/修改成绩、退选 + 统计报表 |
-
-- 底部状态栏实时显示：系 / 班级 / 学生 / 教师 / 课程 的数量。
-- 所有 SQL 均为参数化查询，防止注入；外键约束保证参照完整性。
+Java 实体和 DAO 仍保留，可用于数据库操作；原桌面管理界面及其启动脚本已移除。
+新增/删除学籍在主界面中以“写入预览 → 显式确认按钮”完成（仅管理员）。第 9 张表 `issued_student_id`（学号台账）仍由数据层维护，不应手工删除历史学号。
 
 ## 作业文档
 
@@ -184,48 +175,28 @@ python db\init_db.py --fresh     :: 删库重建（结构 + 数据全部重建�
 **身份 = 主键，无账号表**：输入学号 → 学生；输入教师号 → 老师；`T001` → 管理员（也是老师）。
 角色由程序查库判定，删除即失去身份（权限动态给/收）。
 
-**AI 查询层**（Python + 本地 Ollama，离线）采用**四层架构**，核心原则是
-「**AI 给自由，数据层守边界**」：
+**AI 查询层**采用 pi-agent-core 与 Python 数据能力分层，核心原则是「Agent 负责理解与编排，数据层负责权限与事实」：
 
 | 层 | 文件 | 职责 |
 |---|---|---|
-| ① 上下文层 | `dbcore.py` | 身份 → 作用域（服务端派生，不经 LLM） |
-| ② 规划层 | `planner.py` | 自然语言 → 结构化计划（能力+参数），**不生成 SQL** |
-| ③ 执行层 | `data_layer.py` + `abilities.py` | 白名单能力 + **强制作用域**，RBAC 在此锁死 |
-| ④ 表达层 | `nlg.py` | 数字走确定性模板；越权/闲聊走**温和人格** |
+| Agent 内核 | `backend/src/agent.ts`、`backend/src/system-prompt.ts` | 模型选择、会话历史、工具循环、自定义系统提示词 |
+| 工具与 HTTP | `backend/src/tools.ts`、`backend/src/server.ts` | 受限工具、SSE、会话隔离与显式确认 |
+| 业务执行 | `ai/tool_bridge.py`、`ai/data_layer.py`、`ai/abilities.py` | 身份派生作用域、能力白名单、服务端 RBAC、写入预览/执行 |
+| 事实表达 | `ai/facts.py` | 数据库事实确定性拼装，不依赖模型生成数字 |
 
-设计要点（详见 [`docs/AI层重构设计.md`](docs/AI层重构设计.md)）：
-- **作用域由身份注入，绝不接受 LLM 传来的身份参数**（类似手机相册的"受限句柄"）
-- **数字只由 SQL + 模板产生**：实测 LLM 计数不可靠（同一问题两次答 12 和 10）
-- **越权显式拒绝且措辞温和**，不做静默改写（"以为看到别人数据、其实是自己的"更危险）
-- **Ollama 未启动也能工作**：规划降级为规则、措辞降级为内置模板
+- 模型只可调用已注册的学籍工具，不能执行任意 SQL、命令或文件读写；每次调用在服务端重验身份与权限。
+- 新增/删除学籍只能先预览，再由用户通过带 token 的确认接口触发；模型无法自行确认写入。
+- 查询结果的准确数值来自数据库与确定性事实模板；模型仅负责理解、工具选择和非事实对话。
+- 原“身份 = 主键”只是课程演示，不构成认证；后端默认只监听本机，勿直接暴露公网。
 
-### 用法一：网页界面（推荐，不用命令行）
-```bat
-python webui.py        :: 打开 http://127.0.0.1:8090 ，输入学号/教师号登录
-```
-演示主键：学生 `20230001`、老师 `T002`、管理员 `T001`。
+### API 与测试
 
-### 用法二：命令行（身份 = 主键）
-```bat
-python ai\ai_layer.py --user 20230001 ask 我的学分和毕业还差多少
-python ai\ai_layer.py --user T002     ask 本院有多少学生
-python ai\ai_layer.py --user T001     ask 一共多少老师
-python ai\ai_layer.py --user T001     add 20240099 陈晓 男 SE2201
-python ai\ai_layer.py --user T001     del 20240099
-```
-- 无额外第三方依赖（仅 Python 标准库 + 本地 Ollama 服务）。
-- Ollama 未启动不影响数据查询（降级为规则路由 + 确定性模板作答）。
-
-### 用法三：回归测试
+请求/响应、SSE 事件与 Next.js 对接方法见 [`docs/API.md`](docs/API.md)。
 
 ```bat
-tests\run_tests.bat          :: 一键跑全部
-python tests\test_offline.py :: 离线测试（不需要 Ollama）
-python tests\test_e2e.py     :: 端到端（需要 Ollama，未启动则自动跳过）
+python tests\test_bridge.py    :: Python 数据权限与桥接器测试
+cd backend && bun test         :: 后端会话/HTTP 测试
+cd backend && bun run check    :: TypeScript 静态类型检查
 ```
 
-- **离线测试**覆盖最要紧的部分：权限边界、数字准确性、规划器规则、表达层模板、
-  受控写入、数据库约束（外键 / CHECK / 唯一）。
-- 测试全部在**数据库副本**上运行，不会污染 `db/xueji.db`。
-- 改动 AI 层代码后请先跑离线测试——它能挡住绝大多数回归。
+Python 测试使用数据库副本，不污染 `db/xueji.db`。旧的本地模型调用、规则规划器与 Python AI HTTP 入口已由 Agent 服务取代。

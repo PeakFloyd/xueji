@@ -12,13 +12,26 @@ out/
 
 # ---- 运行时数据库（由 db/schema*.sql + seed_data.sql 确定性生成）----
 # 说明：不入库是有意的——它属于"生成物"，且避免把测试期间改动的数据误提交。
-#       首次使用请运行： db\reset_demo.bat   （或 build.bat + run.bat 会自动建库）
+#       首次使用请运行： python db\init_db.py （或 db\reset_demo.bat 重建演示库）。
 db/xueji.db
 db/backup/
 
 # ---- Python ----
 __pycache__/
 *.py[cod]
+
+# ---- Bun Agent 后端本地依赖、密钥与生成文件 ----
+backend/node_modules/
+backend/.env*
+!backend/.env.example
+backend/*.tsbuildinfo
+
+# ---- 本机 MCP / 工具配置（仅对应当前机器，不入库）----
+.omp/
+components.json
+
+# ---- 本地参考素材（运行所需音频在 frontend/public/audio/）----
+/resources/
 
 # ---- 编辑器 / 系统 ----
 .vscode/

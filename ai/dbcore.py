@@ -13,10 +13,14 @@
 上层：`abilities.py`（能力目录）、`data_layer.py`（执行器与对外门面）。
 """
 
+import os
 import sqlite3
 from contextlib import contextmanager
 
-DB_PATH = r"E:\DSH_workspace\xueji\db\xueji.db"
+DB_PATH = os.environ.get(
+    "XUEJI_DB",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "db", "xueji.db"),
+)
 ADMIN_ID = "T001"                 # 常量：唯一管理员（其本身是老师）
 
 
