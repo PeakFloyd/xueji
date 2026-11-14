@@ -336,6 +336,7 @@ const LISTS = new Set(["list_students", "list_teachers", "course_students", "fai
 
 function Statement({ text, label, big, folded }: { text: string; label: string; big: boolean; folded: boolean }) {
   const [open, setOpen] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const [clipped, setClipped] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const collapsedHeight = useRef(0);
@@ -352,12 +353,12 @@ function Statement({ text, label, big, folded }: { text: string; label: string; 
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [text, open, folded]);
+  }, [text, open, folded, revealed]);
 
-  if (folded && !open)
+  if (folded && !revealed)
     return (
       <section className="xj-text">
-        <button type="button" className="xj-act xj-rise" style={d(0.3)} onClick={() => setOpen(true)}>
+        <button type="button" className="xj-act xj-rise" style={d(0.3)} onClick={() => setRevealed(true)}>
           › 文字版陈述 TEXT VERSION
         </button>
       </section>

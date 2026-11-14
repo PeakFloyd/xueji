@@ -1377,7 +1377,7 @@ td .xj-mark {
   color: var(--paper);
 }
 .xj-text .xj-markdown.clamp {
-  max-height: 7.2em;
+  max-height: 340px;
   overflow: hidden;
 }
 .xj-text .xj-act {
